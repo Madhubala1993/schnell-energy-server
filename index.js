@@ -11,76 +11,55 @@ app.use(cors());
 app.use(bodyParser.json({ limit: "50mb" }));
 let activePort;
 
-// const findSerialPort = async (pnpId) => {
-//   try {
-//     const ports = await SerialPort.list();
-//     const port = ports.find((port) => port.pnpId.includes(pnpId));
-//     return port ? port.path : null;
-//   } catch (error) {
-//     console.error("Error searching for Serial Port:", error);
-//     return null;
-//   }
-// };
-// var portConnect;
 let connectedPort = null;
 
 let receivedData1 = "";
-// const connectSerialPort = async (portPath, hexadecimalArray) => {
-//   try {
-//     console.log("dsfksdjfs->", portPath, hexadecimalArray);
-//     portConnect = new SerialPort({
-//       path: portPath,
-//       baudRate: 115200,
-//       dataBits: 8,
-//       parity: "none",
-//       stopBits: 1,
-//       flowControl: false,
-//     });
-
-//     portConnect.on("error", (error) =>
-//       console.error("Serial Port Error:", error)
-//     );
-//     portConnect.on("close", () => console.log("Serial Port Closed"));
-//   } catch (error) {
-//     console.error("Error connecting to Serial Port:", error);
-//   }
-// };
-
-// const searchAndConnectSerialPort = async (pnpId) => {
-//   try {
-//     const portPath = await findSerialPort("FTDIBUS");
-//     if (portPath) {
-//       console.log("Serial Port Found:", portPath);
-//       await connectSerialPort(portPath);
-//     } else {
-//       console.log("Serial Port not found");
-//     }
-//   } catch (error) {
-//     console.error("Error:", error);
-//   }
-// };
 const sendData = (data) => {
   connectedPort.write(data);
 };
+let receivedData = Buffer.from([]);
+// const receiveData = async (data) => {
+//   // connectedPort.pipe(parser);
+//   let completeMessage;
+//   if (connectedPort) {
+//     connectedPort.on("data", (data) => {
+//       console.log("data", data);
+//       if (data) {
+//         receivedData = Buffer.concat([receivedData, data]);
+//         const messageStartIndex = receivedData.indexOf(0xc5);
+//         const messageEndIndex = receivedData.indexOf(
+//           0x5c,
+//           messageStartIndex + 1
+//         );
 
-const receiveData = async (data) => {
-  connectedPort.pipe(parser);
-  if (connectedPort) {
-    connectedPort.on("data", (data) => {
-      const hexArray = Array.from(
-        Buffer.from(data),
-        (value) => `0x` + value.toString(16).padStart(2, "0")
-      );
-      console.log("Received data:", data);
+//         if (messageStartIndex !== -1 && messageEndIndex !== -1) {
+//           // Extract the complete message
+//           completeMessage = receivedData.slice(
+//             messageStartIndex,
+//             messageEndIndex + 1
+//           );
 
-      receivedData1 = data;
-      console.log("Received data:", receivedData1);
-      connectedPort.removeListener("data", receiveData);
-    });
-  }
-};
-// searchAndConnectSerialPort();
-// receiveData();
+//           // Process the complete message
+//           console.log("Complete message received:", completeMessage);
+
+//           // Remove the processed message from the received data
+//           receivedData = receivedData.slice(messageEndIndex + 1);
+//         }
+//       }
+
+//       console.log("Received data test:", completeMessage);
+//       const hexArray = Array.from(
+//         Buffer.from(data),
+//         (value) => `0x` + value.toString(16).padStart(2, "0")
+//       );
+//       // console.log("Received data:", data);
+
+//       receivedData1 = completeMessage;
+//       // console.log("Received data:", receivedData1);
+//       connectedPort.removeListener("data", receiveData);
+//     });
+//   }
+// };
 
 // Route to get the serial port connection status
 app.get("/serialport/status", (req, res) => {
@@ -110,7 +89,7 @@ app.post("/serialport/connect", (req, res) => {
   const { port } = req.body;
   if (connectedPort !== null) {
     console.warn("Already connected to a serial port. Disconnect first.");
-    res.status(400).json({ error: "Already connected to a serial port" });
+    res.status(400).json({ connectedPort });
     return;
   }
 
@@ -122,18 +101,8 @@ app.post("/serialport/connect", (req, res) => {
     stopBits: 1,
     flowControl: false,
   });
-  // connectedPort.on("data", (data) => {
-  //   console.log("Received data from serial port:", data.toString());
-  //   // Process received data as needed
-  // });
-
-  // connectedPort.on("close", () => {
-  //   console.log("Serial port connection closed.");
-  //   connectedPort = null;
-  // });
 
   console.log(`Connected to serial port: ${port}`);
-  // res.sendStatus(200);
   res.json({ isConnected: true, connectedPort });
 });
 
@@ -156,6 +125,39 @@ app.post("/serialport/disconnect", (req, res) => {
     }
   });
 });
+const receiveData = () => {
+  return new Promise((resolve, reject) => {
+    let receivedData = Buffer.from([]);
+    const timeout = setTimeout(() => {
+      reject(new Error("Timeout: No data received"));
+    }, 5000); // Set a timeout value (in milliseconds) for data reception
+
+    if (connectedPort) {
+      connectedPort.on("data", (data) => {
+        clearTimeout(timeout); // Clear the timeout as data is received
+
+        receivedData = Buffer.concat([receivedData, data]);
+        const messageStartIndex = receivedData.indexOf(0xc5);
+        const messageEndIndex = receivedData.indexOf(
+          0x5c,
+          messageStartIndex + 1
+        );
+
+        if (messageStartIndex !== -1 && messageEndIndex !== -1) {
+          const completeMessage = receivedData.slice(
+            messageStartIndex,
+            messageEndIndex + 1
+          );
+          // console.log("Complete message received:", completeMessage);
+          receivedData = receivedData.slice(messageEndIndex + 1);
+          resolve(completeMessage); // Resolve the promise with the complete message
+        }
+      });
+    } else {
+      reject(new Error("Serial port not connected"));
+    }
+  });
+};
 
 app.post("/startTest", async (req, res) => {
   try {
@@ -165,20 +167,47 @@ app.post("/startTest", async (req, res) => {
       (decimalValue) => `0x${decimalValue.toString(16).padStart(2, "0")}`
     );
     sendData(hexadecimalArray);
-    await receiveData();
-    if (receivedData1) {
-      console.log("jdhsjdhfs", receivedData1);
+    const receivedData = await receiveData();
+
+    if (receivedData) {
       const hexArray = Array.from(
-        Buffer.from(receivedData1),
+        Buffer.from(receivedData),
         (value) => `0x` + value.toString(16).padStart(2, "0")
       );
+      console.log("Received data:", hexArray);
       res.send({ data: hexArray });
-      receivedData1 = "";
+    } else {
+      console.log("No data received");
+      res.send({ data: [] });
     }
   } catch (error) {
     console.error("Error:", error);
+    res.status(500).send({ error: "An error occurred" });
   }
 });
+
+// app.post("/startTest", async (req, res) => {
+//   try {
+//     console.log("post method", req.body);
+//     const decimalArray = req.body.data;
+//     const hexadecimalArray = decimalArray.map(
+//       (decimalValue) => `0x${decimalValue.toString(16).padStart(2, "0")}`
+//     );
+//     sendData(hexadecimalArray);
+//     await receiveData();
+//     if (receivedData1) {
+//       console.log("jdhsjdhfs", receivedData1);
+//       const hexArray = Array.from(
+//         Buffer.from(receivedData1),
+//         (value) => `0x` + value.toString(16).padStart(2, "0")
+//       );
+//       res.send({ data: hexArray });
+//       receivedData1 = "";
+//     }
+//   } catch (error) {
+//     console.error("Error:", error);
+//   }
+// });
 
 app.listen(5004, () => {
   console.log("Server started on port 5004");
