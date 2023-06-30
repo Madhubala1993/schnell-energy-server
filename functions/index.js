@@ -150,4 +150,4 @@ router.post("/startTest", async (req, res) => {
 // });
 
 app.use("/.netlify/functions/api", router);
-module.export.handler = serverless(app);
+module.exports.handler = serverless(app);
