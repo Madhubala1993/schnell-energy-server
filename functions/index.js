@@ -149,5 +149,5 @@ router.post("/startTest", async (req, res) => {
 //   console.log("Server started on port 5004");
 // });
 
-app.use("/.netlify/functions/api", router);
+app.use("/.netlify/functions/index", router);
 module.exports.handler = serverless(app);
