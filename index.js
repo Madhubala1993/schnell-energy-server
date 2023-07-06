@@ -86,7 +86,12 @@ app.post("/serialport/connect", (req, res) => {
   const { port } = req.body;
   if (connectedPort !== null) {
     console.warn("Already connected to a serial port. Disconnect first.");
-    res.status(400).json({ connectedPort });
+    res
+      .status(400)
+      .json({
+        connectedPort,
+        message: "Already connected to a serial port. Disconnect first.",
+      });
     return;
   }
 
@@ -100,7 +105,11 @@ app.post("/serialport/connect", (req, res) => {
   });
 
   console.log(`Connected to serial port: ${port}`);
-  res.json({ isConnected: true, connectedPort });
+  res.json({
+    isConnected: true,
+    connectedPort,
+    message: `Connected to serial port: ${port}`,
+  });
 });
 
 // Route to disconnect from the current serial port
