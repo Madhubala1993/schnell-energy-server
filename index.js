@@ -5,7 +5,6 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const router = express.Router();
 const parser = new ReadlineParser({});
-var http = require("http");
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -150,14 +149,9 @@ app.post("/startTest", async (req, res) => {
     res.status(500).send({ error: "An error occurred" });
   }
 });
-// app.listen(80, () => {
-//   console.log("Server started on port 80");
-// });
-http
-  .createServer(function (req, res) {
-    res.write("A Monk in Cloud"); //write a response to the client
-    res.end(); //end the response
-  })
-  .listen(80); //the server object listens on port 80
+app.listen(5004, () => {
+  console.log("Server started on port 5004");
+});
+
 // app.use("/.netlify/functions/index", router);
 // module.exports.handler = serverless(app);
