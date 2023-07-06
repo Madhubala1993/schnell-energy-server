@@ -50,20 +50,24 @@ const receiveData = () => {
     }
   });
 };
-router.get("/", (req, res) => {
+app.get("/", (req, res) => {
   res.send("App is running 😊😊😊😊");
 });
 
 // Route to get the serial port connection status
-router.get("/serialport/status", (req, res) => {
+app.get("/serialport/status", (req, res) => {
   const isConnected = connectedPort !== null;
 
-  console.log("connected", connectedPort);
-  res.json({ isConnected, connectedPort });
+  // console.log("connected", connectedPort);
+  if (connectedPort !== null) {
+    res.json({ isConnected, connectedPort: connectedPort.settings.path });
+  } else {
+    res.json({ isConnected, connectedPort: null });
+  }
 });
 
 // Route to get the available serial ports
-router.get("/serialport/ports", (req, res) => {
+app.get("/serialport/ports", (req, res) => {
   console.log("/serialport/ports");
   SerialPort.list()
     .then((ports) => {
@@ -77,7 +81,7 @@ router.get("/serialport/ports", (req, res) => {
 });
 
 // Route to connect to a serial port
-router.post("/serialport/connect", (req, res) => {
+app.post("/serialport/connect", (req, res) => {
   console.log("/serialport/connect");
   const { port } = req.body;
   if (connectedPort !== null) {
@@ -100,7 +104,7 @@ router.post("/serialport/connect", (req, res) => {
 });
 
 // Route to disconnect from the current serial port
-router.post("/serialport/disconnect", (req, res) => {
+app.post("/serialport/disconnect", (req, res) => {
   if (connectedPort === null) {
     console.warn("No serial port connected.");
     res.status(400).json({ error: "No serial port connected" });
@@ -119,7 +123,7 @@ router.post("/serialport/disconnect", (req, res) => {
   });
 });
 
-router.post("/startTest", async (req, res) => {
+app.post("/startTest", async (req, res) => {
   try {
     console.log("post method", req.body);
     const decimalArray = req.body.data;
@@ -145,9 +149,9 @@ router.post("/startTest", async (req, res) => {
     res.status(500).send({ error: "An error occurred" });
   }
 });
-// app.listen(5004, () => {
-//   console.log("Server started on port 5004");
-// });
+app.listen(5004, () => {
+  console.log("Server started on port 5004");
+});
 
-app.use("/.netlify/functions/index", router);
-module.exports.handler = serverless(app);
+// app.use("/.netlify/functions/index", router);
+// module.exports.handler = serverless(app);
