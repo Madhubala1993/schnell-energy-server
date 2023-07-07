@@ -72,7 +72,7 @@ app.get("/serialport/ports", (req, res) => {
   SerialPort.list()
     .then((ports) => {
       const availablePorts = ports.map((port) => port.path);
-      res.json({ ports: availablePorts });
+      res.json({ ports: availablePorts, portsList: ports });
     })
     .catch((error) => {
       console.error("Error fetching available serial ports:", error);
@@ -86,12 +86,10 @@ app.post("/serialport/connect", (req, res) => {
   const { port } = req.body;
   if (connectedPort !== null) {
     console.warn("Already connected to a serial port. Disconnect first.");
-    res
-      .status(400)
-      .json({
-        connectedPort,
-        message: "Already connected to a serial port. Disconnect first.",
-      });
+    res.status(400).json({
+      connectedPort,
+      message: "Already connected to a serial port. Disconnect first.",
+    });
     return;
   }
 
@@ -161,6 +159,3 @@ app.post("/startTest", async (req, res) => {
 app.listen(5004, () => {
   console.log("Server started on port 5004");
 });
-
-// app.use("/.netlify/functions/index", router);
-// module.exports.handler = serverless(app);
