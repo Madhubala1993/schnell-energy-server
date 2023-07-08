@@ -5,6 +5,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const router = express.Router();
 const parser = new ReadlineParser({});
+const udev = require("udev");
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -65,7 +66,12 @@ app.get("/serialport/status", (req, res) => {
     res.json({ isConnected, connectedPort: null });
   }
 });
+const devices = udev.list();
+const serialPorts = devices.filter(
+  (device) => device.SUBSYSTEM === "tty" && device.ID_BUS === "usb"
+);
 
+console.log("Serial ports:", serialPorts);
 // Route to get the available serial ports
 app.get("/serialport/ports", (req, res) => {
   console.log("/serialport/ports");
@@ -78,6 +84,12 @@ app.get("/serialport/ports", (req, res) => {
       console.error("Error fetching available serial ports:", error);
       res.status(500).json({ error: "Error fetching available serial ports" });
     });
+  const devices = udev.list();
+  const serialPorts = devices.filter(
+    (device) => device.SUBSYSTEM === "tty" && device.ID_BUS === "usb"
+  );
+
+  console.log("Serial ports:", serialPorts);
 });
 
 // Route to connect to a serial port
