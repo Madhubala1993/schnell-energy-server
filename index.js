@@ -17,8 +17,8 @@ let activePort;
 let connectedPort = null;
 
 const sshConfig = {
-  host: "52.23.163.0",
-  port: 5004,
+  host: "192.168.29.61",
+  port: 22,
   username: "Madhu Saran", // Replace with the actual username of the remote PC
   password: "8682", // Replace with the actual password of the remote PC
 };
