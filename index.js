@@ -5,7 +5,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const router = express.Router();
 const parser = new ReadlineParser({});
-const udev = require("udev");
+
+const { Client } = require("ssh2");
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -14,6 +15,38 @@ app.use(bodyParser.json({ limit: "50mb" }));
 let activePort;
 
 let connectedPort = null;
+
+const sshConfig = {
+  host: "52.23.163.0",
+  port: 5004,
+  username: "Madhu Saran", // Replace with the actual username of the remote PC
+  password: "8682", // Replace with the actual password of the remote PC
+};
+
+const sshClient = new Client();
+
+sshClient.on("ready", () => {
+  console.log("SSH connection established");
+
+  sshClient.exec(
+    'powershell Get-WmiObject Win32_PnPEntity | Where-Object {$_.Name -match "COM"} | ForEach-Object {$_.Name}',
+    (err, stream) => {
+      if (err) throw err;
+
+      let data = "";
+      stream
+        .on("data", (chunk) => {
+          data += chunk;
+        })
+        .on("close", () => {
+          console.log("Available COM ports:", data);
+          sshClient.end();
+        });
+    }
+  );
+});
+
+sshClient.connect(sshConfig);
 
 const sendData = (data) => {
   connectedPort.write(data);
@@ -66,12 +99,7 @@ app.get("/serialport/status", (req, res) => {
     res.json({ isConnected, connectedPort: null });
   }
 });
-const devices = udev.list();
-const serialPorts = devices.filter(
-  (device) => device.SUBSYSTEM === "tty" && device.ID_BUS === "usb"
-);
 
-console.log("Serial ports:", serialPorts);
 // Route to get the available serial ports
 app.get("/serialport/ports", (req, res) => {
   console.log("/serialport/ports");
@@ -84,12 +112,6 @@ app.get("/serialport/ports", (req, res) => {
       console.error("Error fetching available serial ports:", error);
       res.status(500).json({ error: "Error fetching available serial ports" });
     });
-  const devices = udev.list();
-  const serialPorts = devices.filter(
-    (device) => device.SUBSYSTEM === "tty" && device.ID_BUS === "usb"
-  );
-
-  console.log("Serial ports:", serialPorts);
 });
 
 // Route to connect to a serial port
