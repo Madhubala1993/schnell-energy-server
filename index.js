@@ -23,39 +23,6 @@ const io = new Server(server, {
 
 let activePort;
 
-const sendData = (data) => {
-  connectedPort.write(data);
-};
-
-const receiveData = () => {
-  return new Promise((resolve, reject) => {
-    let receivedData = Buffer.from([]);
-    const timeout = setTimeout(() => {
-      reject(new Error("Timeout: No data received"));
-    }, 5000);
-
-    if (connectedPort) {
-      connectedPort.on("data", (data) => {
-        clearTimeout(timeout);
-
-        receivedData = Buffer.concat([receivedData, data]);
-        const messageStartIndex = receivedData.indexOf(0xc5);
-        const messageEndIndex = receivedData.indexOf(0x5c);
-
-        if (messageStartIndex !== -1 && messageEndIndex !== -1) {
-          const completeMessage = receivedData.slice(
-            messageStartIndex,
-            messageEndIndex + 1
-          );
-          receivedData = receivedData.slice(messageEndIndex + 1);
-          resolve(completeMessage);
-        }
-      });
-    } else {
-      reject(new Error("Serial port not connected"));
-    }
-  });
-};
 app.get("/", (req, res) => {
   res.send("App is running 😊😊😊😊");
 });
@@ -97,7 +64,7 @@ app.post("/serialport/connect", async (req, res) => {
 
   connectedPort = new SerialPort({
     path: port,
-    baudRate: 115200,
+    baudRate: 9600,
     dataBits: 8,
     parity: "none",
     stopBits: 1,
@@ -108,56 +75,42 @@ app.post("/serialport/connect", async (req, res) => {
   console.log("jdbajdfh");
   let receivedData = Buffer.from([]);
   let completeMessage;
+
+  const timeout = setTimeout(() => {
+    reject(new Error("Timeout: No data received"));
+  }, 10000);
+
   connectedPort.on("data", (data) => {
-    receivedData = Buffer.concat([receivedData, data]);
-    const messageStartIndex = receivedData.indexOf(0xc5);
-    const messageEndIndex = receivedData.indexOf(0x5c);
+    if (data instanceof Buffer) {
+      clearTimeout(timeout);
 
-    if (messageStartIndex !== -1 && messageEndIndex !== -1) {
-      completeMessage = receivedData.slice(
-        messageStartIndex,
-        messageEndIndex + 1
-      );
-      receivedData = receivedData.slice(messageEndIndex + 1);
-      console.log("Received data:", completeMessage);
+      receivedData = Buffer.concat([receivedData, data]);
+      const messageStartIndex = receivedData.indexOf(0xc5);
+      const messageEndIndex = receivedData.indexOf(0x5c);
+
+      if (messageStartIndex !== -1 && messageEndIndex !== -1) {
+        completeMessage = receivedData.slice(
+          messageStartIndex,
+          messageEndIndex + 1
+        );
+        receivedData = receivedData.slice(messageEndIndex + 1);
+        console.log("Received complete message:", completeMessage);
+
+        const hexArray = Array.from(
+          Buffer.from(completeMessage),
+          (value) => `0x` + value.toString(16).padStart(2, "0")
+        );
+
+        io.emit("serialData", hexArray);
+      }
+    } else {
+      console.error("Received invalid data format:", typeof data);
     }
-    const hexArray = Array.from(
-      Buffer.from(completeMessage),
-      (value) => `0x` + value.toString(16).padStart(2, "0")
-    );
-
-    io.emit("serialData", hexArray);
   });
   // }
 });
 io.on("connection", (socket) => {
   console.log("A user connected");
-
-  // if (connectedPort) {
-  //   console.log("jdbajdfh");
-  //   let receivedData = Buffer.from([]);
-  //   let completeMessage;
-  //   connectedPort.on("data", (data) => {
-  //     receivedData = Buffer.concat([receivedData, data]);
-  //     const messageStartIndex = receivedData.indexOf(0xc5);
-  //     const messageEndIndex = receivedData.indexOf(0x5c);
-
-  //     if (messageStartIndex !== -1 && messageEndIndex !== -1) {
-  //       completeMessage = receivedData.slice(
-  //         messageStartIndex,
-  //         messageEndIndex + 1
-  //       );
-  //       receivedData = receivedData.slice(messageEndIndex + 1);
-  //       console.log("Received data:", completeMessage);
-  //     }
-  //     const hexArray = Array.from(
-  //       Buffer.from(completeMessage),
-  //       (value) => `0x` + value.toString(16).padStart(2, "0")
-  //     );
-
-  //     socket.emit("serialData", hexArray);
-  //   });
-  // }
   socket.on("serialData1", (data) => {
     console.log(data);
   });
